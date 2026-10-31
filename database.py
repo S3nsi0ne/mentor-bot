@@ -74,10 +74,6 @@ class DatabaseManager:
 if __name__ == "__main__":
     db = DatabaseManager()
 
-    # ۱. ذخیره دو پیام تستی
-    db.add_message(user_id=12345, role="user", content="سلام استاد، Context Manager چیه؟")
-    db.add_message(user_id=12345, role="model", content="سلام! یه مکانیزم برای مدیریت منابع در پایتونه.")
-
     # ۲. خواندن پیام‌ها از دیتابیس و چاپ کردنشان
     history = db.get_history(user_id=12345)
     for msg in history:
