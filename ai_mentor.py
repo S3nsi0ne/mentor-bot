@@ -1,4 +1,5 @@
 import os
+import re
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
@@ -13,7 +14,9 @@ SYSTEM_PROMPT = """
 قانون تو برای آموزش هر مبحث این ۳ مرحله است (هر بار فقط یک مرحله را جلو ببر و منتظر پاسخ دانشجو بمان):
 ۱. آموزش و پرسش: مبحث درخواستی را به زبان ساده و با مثال کاربردی توضیح بده. در انتهای پیام، دقیقا ۳ سوال مفهومی کوتاه بپرس تا مطمئن شوی مطلب را گرفته است.
 ۲. بررسی و تعریف تسک: پاسخ دانشجو به ۳ سوال را بررسی کن. اگر اشتباهی داشت اصلاح کن و سپس ۱ تسک کدنویسی عملی مرتبط با همان مبحث به او بده.
-۳. ریویو کد (Code Review): کدی که دانشجو می‌فرستد را خط‌به‌خط بررسی کن. اگر باگ داشت راهنمایی کن تا خودش اصلاح کند، و اگر تمیز بود تشویقش کن و بپرس سراغ کدام مبحث بعدی برویم.
+۳. ریویو کد و نمره‌دهی (Code Review): کدی که دانشجو می‌فرستد را بررسی کن. اگر باگ اساسی داشت راهنمایی کن تا اصلاح کند. اما به محض اینکه کد قابل قبول بود، به او از ۱۰۰ نمره بده و در خط آخر پیامت دقیقا با همین فرمت انگلیسی بنویس:
+[SCORE: 95 | TOPIC: نام مبحث]
+(مثال: [SCORE: 90 | TOPIC: Python Context Managers])
 """
 
 
@@ -25,7 +28,6 @@ class AIMentor:
 
         self.client = genai.Client(api_key=api_key)
         self.db = DatabaseManager()
-        # قرار دادن سریع‌ترین و خلوت‌ترین مدل‌ها در اول لیست
         self.models = [
             "gemini-3.5-flash",
             "gemini-3.1-flash-lite",
@@ -35,7 +37,6 @@ class AIMentor:
         ]
 
     def ask(self, user_id: int, user_message: str) -> str:
-        # ۱. خواندن تاریخچه قبلی از دیتابیس
         history_rows = self.db.get_history(user_id, limit=10)
 
         contents = []
@@ -45,12 +46,10 @@ class AIMentor:
                 types.Content(role=role, parts=[types.Part.from_text(text=row["content"])])
             )
 
-        # اضافه کردن پیام فعلی کاربر به لیست ارسالی
         contents.append(
             types.Content(role="user", parts=[types.Part.from_text(text=user_message)])
         )
 
-        # ۲. تلاش برای گرفتن جواب از مدل‌ها به ترتیب لیست
         last_error = None
         reply_text = None
 
@@ -67,7 +66,7 @@ class AIMentor:
                 )
                 reply_text = response.text
                 print(f"پاسخ با موفقیت از مدل {model_name} دریافت شد!")
-                break  # به محض اینکه یکی از مدل‌ها جواب داد، از حلقه خارج شو
+                break
             except Exception as e:
                 print(f"مدل {model_name} در دسترس نبود: {e}")
                 last_error = e
@@ -75,7 +74,15 @@ class AIMentor:
         if reply_text is None:
             raise last_error
 
-        # ۳. ذخیره پیام کاربر و جواب هوش مصنوعی در دیتابیس
         self.db.add_message(user_id, "user", user_message)
         self.db.add_message(user_id, "model", reply_text)
+
+        # شکار خودکار نمره و مبحث از داخل متن پاسخ هوش مصنوعی با Regex
+        match = re.search(r"\[SCORE:\s*(\d+)\s*\|\s*TOPIC:\s*(.+?)\]", reply_text)
+        if match:
+            score = int(match.group(1))
+            topic = match.group(2)
+            self.db.add_score(user_id, topic, score)
+            reply_text += f"\n\n✅ نمره {score} برای مبحث «{topic}» در کارنامه‌ات ثبت شد!"
+
         return reply_text
