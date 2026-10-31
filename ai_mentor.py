@@ -77,7 +77,7 @@ class AIMentor:
         self.db.add_message(user_id, "user", user_message)
         self.db.add_message(user_id, "model", reply_text)
 
-        # شکار خودکار نمره و مبحث از داخل متن پاسخ هوش مصنوعی با Regex
+        # استخراج خودکار نمره و مبحث از پاسخ هوش مصنوعی
         match = re.search(r"\[SCORE:\s*(\d+)\s*\|\s*TOPIC:\s*(.+?)\]", reply_text)
         if match:
             score = int(match.group(1))
