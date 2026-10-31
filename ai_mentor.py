@@ -25,14 +25,13 @@ class AIMentor:
 
         self.client = genai.Client(api_key=api_key)
         self.db = DatabaseManager()
-        # لیست مدل‌ها به ترتیب اولویت (اگر اولی شلوغ بود، دومی و سومی تست می‌شوند)
-        # لیست مدل‌های واقعی و فعال اکانت به ترتیب اولویت
+        # قرار دادن سریع‌ترین و خلوت‌ترین مدل‌ها در اول لیست
         self.models = [
-            "gemini-3.8-flash",
-            "gemini-3.7-flash",
-            "gemini-3.6-flash",
             "gemini-3.5-flash",
-            "gemini-3.1-pro-preview",
+            "gemini-3.1-flash-lite",
+            "gemini-3.6-flash",
+            "gemini-3.7-flash",
+            "gemini-3.8-flash",
         ]
 
     def ask(self, user_id: int, user_message: str) -> str:
@@ -57,6 +56,7 @@ class AIMentor:
 
         for model_name in self.models:
             try:
+                print(f"در حال امتحان کردن مدل {model_name}...")
                 response = self.client.models.generate_content(
                     model=model_name,
                     contents=contents,
@@ -66,6 +66,7 @@ class AIMentor:
                     )
                 )
                 reply_text = response.text
+                print(f"پاسخ با موفقیت از مدل {model_name} دریافت شد!")
                 break  # به محض اینکه یکی از مدل‌ها جواب داد، از حلقه خارج شو
             except Exception as e:
                 print(f"مدل {model_name} در دسترس نبود: {e}")
@@ -74,7 +75,7 @@ class AIMentor:
         if reply_text is None:
             raise last_error
 
-        # ۳. حالا که جواب با موفقیت گرفته شد، هر دو پیام را در دیتابیس ذخیره کن
+        # ۳. ذخیره پیام کاربر و جواب هوش مصنوعی در دیتابیس
         self.db.add_message(user_id, "user", user_message)
         self.db.add_message(user_id, "model", reply_text)
         return reply_text
