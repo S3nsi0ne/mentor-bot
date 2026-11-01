@@ -118,18 +118,26 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cursor.execute("DELETE FROM chat_history WHERE user_id = ?", (user_id,))
     await update.message.reply_text("حافظه چت فعلی پاک شد (نمره‌هات توی کارنامه محفوظه)! 🔄\nخب، سراغ کدوم مبحث بعدی بریم؟")
 
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    track_user(update)
+    track_user(update)  # ثبت/آپدیت کاربر در دیتابیس
     user_id = update.effective_user.id
     user_text = update.message.text
     print(f"پیام جدید از کاربر {user_id}: {user_text}")
 
+    # --- تغییر کلیدی اینجاست ---
+    # فعال کردن اکشن "typing..." در تلگرام
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+    # ------------------------
 
     try:
+        # درخواست به هوش مصنوعی (این بخش ممکن است چند ثانیه طول بکشد)
         reply = mentor.ask(user_id=user_id, user_message=user_text)
+
+        # تقسیم پیام اگر طولانی‌تر از حد مجاز تلگرام (4000 کاراکتر) باشد
         for i in range(0, len(reply), 4000):
-            await update.message.reply_text(reply[i:i+4000])
+            await update.message.reply_text(reply[i:i + 4000])
+
     except Exception as e:
         print(f"خطا در پردازش پیام: {e}")
         await update.message.reply_text(f"خطایی رخ داد: {e}")
