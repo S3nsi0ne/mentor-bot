@@ -120,27 +120,31 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    track_user(update)  # ثبت/آپدیت کاربر در دیتابیس
+    track_user(update)
     user_id = update.effective_user.id
     user_text = update.message.text
     print(f"پیام جدید از کاربر {user_id}: {user_text}")
 
-    # --- تغییر کلیدی اینجاست ---
-    # فعال کردن اکشن "typing..." در تلگرام
-    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-    # ------------------------
+    # ۱. ارسال پیام موقت اولیه و ذخیره آبجکت آن
+    processing_msg = await update.message.reply_text("⏳ منتور در حال فکر کردن و بررسی سوال شماست...")
 
     try:
-        # درخواست به هوش مصنوعی (این بخش ممکن است چند ثانیه طول بکشد)
+        # ۲. درخواست به هوش مصنوعی
         reply = mentor.ask(user_id=user_id, user_message=user_text)
 
-        # تقسیم پیام اگر طولانی‌تر از حد مجاز تلگرام (4000 کاراکتر) باشد
+        # ۳. ویرایش پیام موقت و جایگزین کردن پاسخ نهایی (تقسیم به تکه‌های 4000 کاراکتری اگر طولانی بود)
         for i in range(0, len(reply), 4000):
-            await update.message.reply_text(reply[i:i + 4000])
+            chunk = reply[i:i + 4000]
+            if i == 0:
+                # برای اولین تکه، همان پیام موقت را ویرایش می‌کنیم
+                await processing_msg.edit_text(chunk)
+            else:
+                # اگر پاسخ خیلی طولانی بود و تکه دوم داشت، پیام جدید می‌فرستیم
+                await update.message.reply_text(chunk)
 
     except Exception as e:
         print(f"خطا در پردازش پیام: {e}")
-        await update.message.reply_text(f"خطایی رخ داد: {e}")
+        await processing_msg.edit_text(f"خطایی رخ داد: {e}")
 
 def main():
     if not TELEGRAM_TOKEN:
